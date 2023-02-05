@@ -46,11 +46,28 @@ public class GameController : MonoBehaviour
     public GameObject victoryPanel;
     public GameObject gameOverPanel;
 
+    public GameObject gameOverText;
+    public GameObject victoryText;
+
+    public TMP_Text hintText;
+
     private float timeLeft;
+    private float gameOverLockout;
+    private bool updatedGameOverText = false;
 
     private bool gameOver = false;
 
     private List<AInteractable> interactableObjects = new List<AInteractable>();
+
+    private float totalGameTime = 0f;
+    private bool hint2shown = false;
+    private bool hint3shown = false;
+    private bool hint3Ashown = false;
+    private bool hint4shown = false;
+    private bool hint5shown = false;
+
+    private bool aphidSpawned = false;
+    private bool aphidSmooshed = false;
 
     public bool IsGameOver()
     {
@@ -73,11 +90,19 @@ public class GameController : MonoBehaviour
     {
         if (gameOver)
         {
+            gameOverLockout -= Time.deltaTime;
+            if (gameOverLockout < 0f && !updatedGameOverText)
+            {
+                updatedGameOverText = true;
+                gameOverText.SetActive(true);
+                victoryText.SetActive(true);
+            }
+
             if (Keyboard.current.cKey.isPressed)
             {
                 SceneManager.LoadScene("Credits");
             }
-            else if (Keyboard.current.anyKey.isPressed)
+            else if (Keyboard.current.anyKey.isPressed && gameOverLockout < 0f)
             {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().name);
             }
@@ -93,6 +118,38 @@ public class GameController : MonoBehaviour
         }
 
         timeLeft -= Time.deltaTime;
+
+        totalGameTime += Time.deltaTime;
+
+        if (totalGameTime > 5f && !hint2shown)
+        {
+            hint2shown = true;
+            hintText.text = "Gather water and nutrients for the tree!";
+        }
+
+        if (totalGameTime > 8f && !hint3shown && hint2shown && ladybugController.IsCarryingItem())
+        {
+            hint3shown = true;
+            hintText.text = "Bring the item back to the roots of the tree!";
+        }
+
+        if (!hint3Ashown && !hint4shown && hint3shown && !ladybugController.IsCarryingItem())
+        {
+            hint3Ashown = true;
+            hintText.text = "Keep supplying the tree!";
+        }
+
+        if (!hint4shown && hint3shown && aphidSpawned)
+        {
+            hint4shown = true;
+            hintText.text = "An aphid wants to chew the roots of the tree.  Stop it!";
+        }
+
+        if (!hint5shown && hint4shown && aphidSmooshed)
+        {
+            hint5shown = true;
+            hintText.text = "Keep defending the tree and providing its needs!";
+        }
 
         if (timeLeft < 0)
         {
@@ -127,6 +184,7 @@ public class GameController : MonoBehaviour
                         break;
                     case ESpawnType.Aphid:
                         SpawnPrefab<AphidController>(spawnRecord);
+                        aphidSpawned = true;
                         break;
                 }
                 
@@ -142,6 +200,11 @@ public class GameController : MonoBehaviour
             {
                 bool destroyInteractable;
                 interactable.Interact(ladybugController, out destroyInteractable);
+
+                if (interactable is AphidController)
+                {
+                    aphidSmooshed = true;
+                }
 
                 if (destroyInteractable)
                 {
@@ -191,11 +254,13 @@ public class GameController : MonoBehaviour
     private void ShowVictory()
     {
         victoryPanel.SetActive(true);
+        gameOverLockout = 3;
     }
 
     private void ShowGameOver()
     {
         gameOverPanel.SetActive(true);
+        gameOverLockout = 3;
     }
 
     private void SpawnPrefab<T>(SpawnTimeRecord spawnRecord) where T:AInteractable
